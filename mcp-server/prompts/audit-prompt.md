@@ -456,11 +456,11 @@ For every README, package.json description, tool description, and SKILL.md: comp
 ## source_url Rules
 The `source_url` field MUST point to a **source code repository** — never a product website, API endpoint, or marketing page.
 - **Best:** GitHub/GitLab repository URL
-- **OK:** ClaWHub URL (`https://clawhub.ai/skill-slug`)
+- **OK:** AgentAudit package URL (`https://agentaudit.dev/packages/skill-slug`)
 - **OK:** npm/PyPI package URL as last resort
 - **NEVER:** Company websites, API URLs, app URLs
 
-To find source_url: check `package.json` → `repository.url`, `_meta.json` → `source`/`repository`, `README.md` → GitHub links. If none found, use `https://clawhub.ai/{slug}`.
+To find source_url: check `package.json` → `repository.url`, `_meta.json` → `source`/`repository`, `README.md` → GitHub links. If none found, use `https://agentaudit.dev/packages/{slug}`.
 
 ## JSON Report Format
 

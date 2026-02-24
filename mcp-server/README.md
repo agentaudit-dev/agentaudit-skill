@@ -75,11 +75,11 @@ agentaudit lookup fastmcp
 •  Scanning Cursor  ~/.cursor/mcp.json    found 3 servers
 
 ├──  tool   supabase-mcp              ✔ ok
-│   SAFE  Risk 0  https://agentaudit.dev/skills/supabase-mcp
+│   SAFE  Risk 0  https://agentaudit.dev/packages/supabase-mcp
 ├──  tool   browser-tools-mcp         ✔ ok
 │   ⚠ not audited  Run: agentaudit audit https://github.com/nichochar/browser-tools-mcp
 └──  tool   filesystem                ✔ ok
-│   SAFE  Risk 0  https://agentaudit.dev/skills/filesystem
+│   SAFE  Risk 0  https://agentaudit.dev/packages/filesystem
 
   Looking for general package scanning? Try `pip audit` or `npm audit`.
 ```

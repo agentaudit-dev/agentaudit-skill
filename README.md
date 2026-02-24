@@ -8,7 +8,7 @@
 
 <br>
 
-[![AgentAudit](https://www.agentaudit.dev/api/badge/agentaudit-skill)](https://www.agentaudit.dev/skills/agentaudit-skill)
+[![AgentAudit](https://www.agentaudit.dev/api/badge/agentaudit-skill)](https://www.agentaudit.dev/packages/agentaudit-skill)
 [![Trust Registry](https://img.shields.io/badge/Trust_Registry-Live-00C853?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+PHBhdGggZD0iTTEyIDJMMyA3djZjMCA1LjU1IDMuODQgMTAuNzQgOSAxMiA1LjE2LTEuMjYgOS02LjQ1IDktMTJWN2wtOS01eiIvPjwvc3ZnPg==)](https://agentaudit.dev)
 [![Leaderboard](https://img.shields.io/badge/Leaderboard-View-2196F3?style=for-the-badge)](https://agentaudit.dev/leaderboard)
 [![License](https://img.shields.io/badge/License-AGPL_3.0-F9A825?style=for-the-badge)](LICENSE)

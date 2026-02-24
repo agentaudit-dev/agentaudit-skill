@@ -576,7 +576,7 @@ function quickChecks(files) {
 
 async function checkRegistry(slug) {
   try {
-    const res = await fetch(`${REGISTRY_URL}/api/skills/${encodeURIComponent(slug)}`, {
+    const res = await fetch(`${REGISTRY_URL}/api/packages/${encodeURIComponent(slug)}`, {
       signal: AbortSignal.timeout(5000),
     });
     if (res.ok) return await res.json();
@@ -666,7 +666,7 @@ function printScanResult(url, info, files, findings, registryData, duration) {
   if (registryData) {
     const rd = registryData;
     const riskScore = rd.risk_score ?? rd.latest_risk_score ?? 0;
-    console.log(`${icons.treeLast}  ${c.dim}registry${c.reset}  ${riskBadge(riskScore)} Risk ${riskScore}  ${c.dim}${REGISTRY_URL}/skills/${slug}${c.reset}`);
+    console.log(`${icons.treeLast}  ${c.dim}registry${c.reset}  ${riskBadge(riskScore)} Risk ${riskScore}  ${c.dim}${REGISTRY_URL}/packages/${slug}${c.reset}`);
   } else {
     console.log(`${icons.treeLast}  ${c.dim}registry${c.reset}  ${c.dim}not audited yet${c.reset}`);
   }
@@ -1056,7 +1056,7 @@ async function discoverCommand(options = {}) {
         const riskScore = regData.risk_score ?? regData.latest_risk_score ?? 0;
         const hasOfficial = regData.has_official_audit;
         console.log(`${branch}  ${c.bold}${server.name}${c.reset}    ${sourceLabel}`);
-        console.log(`${pipe}  ${riskBadge(riskScore)} Risk ${riskScore}  ${hasOfficial ? `${c.green}✔ official${c.reset}  ` : ''}${c.dim}${REGISTRY_URL}/skills/${slug}${c.reset}`);
+        console.log(`${pipe}  ${riskBadge(riskScore)} Risk ${riskScore}  ${hasOfficial ? `${c.green}✔ official${c.reset}  ` : ''}${c.dim}${REGISTRY_URL}/packages/${slug}${c.reset}`);
         if (resolvedUrl) allServersWithUrls.push({ name: server.name, sourceUrl: resolvedUrl, hasAudit: true, regData });
       } else {
         unauditedServers++;
@@ -1442,7 +1442,7 @@ async function auditRepo(url) {
       if (res.ok) {
         const data = await res.json();
         console.log(` ${c.green}done${c.reset}`);
-        console.log(`  ${c.dim}Report: ${REGISTRY_URL}/skills/${slug}${c.reset}`);
+        console.log(`  ${c.dim}Report: ${REGISTRY_URL}/packages/${slug}${c.reset}`);
       } else {
         console.log(` ${c.yellow}failed (HTTP ${res.status})${c.reset}`);
       }
@@ -1479,7 +1479,7 @@ async function checkPackage(name) {
     console.log(`  ${c.bold}${name}${c.reset}  ${riskBadge(riskScore)}`);
     console.log(`  ${c.dim}Risk Score: ${riskScore}/100${c.reset}`);
     if (data.source_url) console.log(`  ${c.dim}Source: ${data.source_url}${c.reset}`);
-    console.log(`  ${c.dim}Registry: ${REGISTRY_URL}/skills/${name}${c.reset}`);
+    console.log(`  ${c.dim}Registry: ${REGISTRY_URL}/packages/${name}${c.reset}`);
     if (data.has_official_audit) console.log(`  ${c.green}✔ Officially audited${c.reset}`);
     console.log();
   }

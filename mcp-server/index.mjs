@@ -258,7 +258,7 @@ async function resolveSourceUrl(server) {
 
 async function checkRegistry(slug) {
   try {
-    const res = await fetch(`${REGISTRY_URL}/api/skills/${encodeURIComponent(slug)}`, {
+    const res = await fetch(`${REGISTRY_URL}/api/packages/${encodeURIComponent(slug)}`, {
       signal: AbortSignal.timeout(5000),
     });
     if (res.ok) return await res.json();
@@ -379,7 +379,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               const risk = regData.risk_score ?? regData.latest_risk_score ?? 0;
               const official = regData.has_official_audit ? ' (official)' : '';
               text += `- **Registry: ✅ Audited** — Risk ${risk}/100${official}\n`;
-              text += `- Report: ${REGISTRY_URL}/skills/${slug}\n`;
+              text += `- Report: ${REGISTRY_URL}/packages/${slug}\n`;
             } else {
               const sourceUrl = await resolveSourceUrl(srv);
               text += `- **Registry: ⚠️ Not audited** — no audit report found\n`;
@@ -529,7 +529,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         try { data = JSON.parse(body); } catch { data = { raw: body }; }
 
         if (res.ok) {
-          return { content: [{ type: 'text', text: `✅ Report submitted!\n\nReport ID: ${data.report_id || 'unknown'}\nURL: ${REGISTRY_URL}/skills/${report.skill_slug}\nRisk: ${report.risk_score}/100 (${report.result})\nFindings: ${report.findings_count}` }] };
+          return { content: [{ type: 'text', text: `✅ Report submitted!\n\nReport ID: ${data.report_id || 'unknown'}\nURL: ${REGISTRY_URL}/packages/${report.skill_slug}\nRisk: ${report.risk_score}/100 (${report.result})\nFindings: ${report.findings_count}` }] };
         } else {
           return { content: [{ type: 'text', text: `Upload failed (HTTP ${res.status}): ${JSON.stringify(data, null, 2)}` }] };
         }
@@ -546,7 +546,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       try {
-        const res = await fetch(`${REGISTRY_URL}/api/skills/${encodeURIComponent(package_name)}`, {
+        const res = await fetch(`${REGISTRY_URL}/api/packages/${encodeURIComponent(package_name)}`, {
           signal: AbortSignal.timeout(10_000),
         });
 
@@ -562,7 +562,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         summary += `**Risk Score:** ${risk}/100\n`;
         summary += `**Status:** ${official}\n`;
         if (data.source_url) summary += `**Source:** ${data.source_url}\n`;
-        summary += `**Registry:** ${REGISTRY_URL}/skills/${package_name}\n\n`;
+        summary += `**Registry:** ${REGISTRY_URL}/packages/${package_name}\n\n`;
         summary += `## Full Data\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
 
         return { content: [{ type: 'text', text: summary }] };
