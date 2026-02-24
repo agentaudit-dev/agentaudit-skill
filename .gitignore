@@ -1,0 +1,21 @@
+# Credentials (NEVER publish)
+config/credentials.json
+
+# Test data (internal only)
+tests/packages/
+tests/v2/
+tests/QA-*.md
+tests/V2-*.md
+tests/VALIDATION-*.md
+tests/E2E-*.md
+tests/RESEARCH-*.md
+tests/benchmark.mjs
+tests/test-packages.json
+
+# Prompt backups
+prompts/audit-prompt-v1.md
+prompts/audit-prompt-v2.md
+
+# ClawHub internal
+.clawhub/
+.clawhubignore

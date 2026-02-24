@@ -1,0 +1,45 @@
+{
+  "name": "agentaudit",
+  "version": "3.9.1",
+  "description": "Security scanner for AI packages — MCP server + CLI",
+  "type": "module",
+  "bin": {
+    "agentaudit": "./cli.mjs"
+  },
+  "main": "index.mjs",
+  "files": [
+    "index.mjs",
+    "cli.mjs",
+    "prompts/audit-prompt.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node index.mjs",
+    "scan": "node cli.mjs scan"
+  },
+  "keywords": [
+    "security",
+    "audit",
+    "mcp",
+    "mcp-server",
+    "ai-agent",
+    "scanner",
+    "vulnerability",
+    "prompt-injection",
+    "agent-security"
+  ],
+  "author": "agentaudit-dev",
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentaudit-dev/agentaudit-mcp.git"
+  },
+  "homepage": "https://agentaudit.dev",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

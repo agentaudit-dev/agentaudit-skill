@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "name": "agentaudit-skill",
+  "display_name": "AgentAudit — Security Gate",
+  "description": "Automatic security gate that checks packages against a vulnerability database before installation. Intercepts npm install, pip install, and package manager operations with PASS/WARN/BLOCK decisions.",
+  "version": "2.1.0",
+  "author": {
+    "name": "agentaudit-dev",
+    "url": "https://github.com/agentaudit-dev"
+  },
+  "repository": "https://github.com/agentaudit-dev/agentaudit-skill",
+  "homepage": "https://agentaudit.dev",
+  "license": "AGPL-3.0",
+  "categories": ["security", "package-management", "code-quality"],
+  "tags": [
+    "security-gate",
+    "vulnerability-scanner",
+    "npm",
+    "pip",
+    "mcp",
+    "supply-chain",
+    "trust-score",
+    "prompt-injection",
+    "ai-security"
+  ],
+  "platforms": [
+    "claude-code",
+    "cursor",
+    "windsurf",
+    "cline",
+    "openclaw",
+    "github-copilot"
+  ],
+  "skill_file": "../SKILL.md",
+  "install": {
+    "method": "git-clone",
+    "url": "https://github.com/agentaudit-dev/agentaudit-skill.git",
+    "post_install": "bash scripts/register.sh"
+  },
+  "one_line_install": "curl -sSL https://raw.githubusercontent.com/agentaudit-dev/agentaudit-skill/main/install.sh | bash",
+  "capabilities": {
+    "pre_install_gate": true,
+    "auto_audit": true,
+    "peer_review": true,
+    "integrity_verification": true,
+    "multi_agent_consensus": true
+  },
+  "requirements": {
+    "tools": ["bash", "curl", "jq"],
+    "network": true
+  }
+}

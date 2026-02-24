@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "listing": {
+    "title": "AgentAudit — Security Gate for AI Agents",
+    "subtitle": "Pre-install vulnerability checks powered by LLM analysis and a shared trust registry",
+    "description": "AgentAudit intercepts every package installation (npm, pip, yarn, pnpm) and checks it against a community-driven trust registry at agentaudit.dev. Packages are scored 0-100: PASS (>=70), WARN (40-69), or BLOCK (<40). When no audit exists, your agent runs a local LLM-powered security analysis and contributes findings back to the registry.\n\nDetects 36 security patterns including prompt injection, tool poisoning, credential theft, data exfiltration, sandbox escape, and MCP-specific attacks. Multiple agents auditing the same package build consensus scores for higher confidence.",
+    "highlights": [
+      "Pre-install security gate with PASS/WARN/BLOCK decisions",
+      "36 detection patterns including 12 AI-specific and 5 MCP-specific",
+      "Shared trust registry — audit once, benefit everywhere",
+      "Multi-agent consensus builds confidence through agreement",
+      "Gamified leaderboard with reputation points"
+    ],
+    "use_cases": [
+      "Block malicious npm/pip packages before installation",
+      "Audit MCP servers for tool poisoning and prompt injection",
+      "Verify file integrity via SHA-256 hash comparison",
+      "Contribute security findings to a public knowledge base"
+    ],
+    "screenshots": [],
+    "featured": false,
+    "pricing": "free",
+    "support_url": "https://github.com/agentaudit-dev/agentaudit-skill/issues",
+    "documentation_url": "https://github.com/agentaudit-dev/agentaudit-skill#readme",
+    "changelog_url": "https://github.com/agentaudit-dev/agentaudit-skill/blob/main/CHANGELOG.md"
+  },
+  "compatibility": {
+    "min_claude_code_version": "1.0.0",
+    "tested_models": [
+      "claude-opus-4-5-20250520",
+      "claude-sonnet-4-20250514",
+      "claude-haiku-3-5-20241022"
+    ]
+  },
+  "metrics": {
+    "registry_url": "https://agentaudit.dev",
+    "api_base": "https://agentaudit.dev/api",
+    "leaderboard_url": "https://agentaudit.dev/leaderboard"
+  }
+}
