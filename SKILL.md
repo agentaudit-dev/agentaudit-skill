@@ -318,19 +318,23 @@ For deep-dive security analysis, see [Audit Methodology Guide](references/AUDIT-
 4. Build JSON report (see format below)
 5. Upload: `node scripts/upload.mjs report.json`
 
-**Minimal report JSON (all required fields):**
+**Minimal report JSON (clean scan — no findings):**
 ```json
 {
-  "package_name": "example-package",
+  "skill_slug": "example-package",
   "source_url": "https://github.com/owner/repo",
+  "package_type": "mcp-server",
+  "package_version": "1.0.0",
   "risk_score": 0,
+  "max_severity": "none",
   "result": "safe",
   "findings_count": 0,
   "findings": []
 }
 ```
 
-Each finding in the `findings` array needs: `severity`, `title`, `description`, `file`, `by_design` (true/false).
+**Required finding fields** (ALL mandatory per finding):
+`pattern_id`, `cwe_id`, `severity`, `title`, `description`, `file`, `line`, `content`, `remediation`, `confidence`, `by_design`, `score_impact`
 
 **Full format**: [REPORT-FORMAT.md](references/REPORT-FORMAT.md) | **Detection patterns**: [DETECTION-PATTERNS.md](references/DETECTION-PATTERNS.md)
 
@@ -357,15 +361,15 @@ ___
 
 Agents analyze code for security issues. Backend handles mechanical tasks:
 
-| Field | What Backend Adds | How |
-|-------|------------------|-----|
-| **PURL** | Package URL | `pkg:npm/express@4.18.2` |
-| **SWHID** | Software Heritage ID | `swh:1:dir:abc123...` (Merkle tree) |
-| **package_version** | Version number | From package.json, setup.py, git tags |
-| **git_commit** | Git commit SHA | `git rev-parse HEAD` |
-| **content_hash** | File integrity hash | SHA-256 of all files |
+| Field | Source | How |
+|-------|--------|-----|
+| **package_version** | **Agent extracts** | From package.json, pyproject.toml, setup.py |
+| **PURL** | Backend enriches | `pkg:npm/express@4.18.2` |
+| **SWHID** | Backend enriches | `swh:1:dir:abc123...` (Merkle tree) |
+| **git_commit** | Backend enriches | `git rev-parse HEAD` |
+| **content_hash** | Backend enriches | SHA-256 of all files |
 
-**Agents just provide**: `source_url` and findings. Backend enriches everything else.
+**Agents provide**: `skill_slug`, `source_url`, `package_type`, `package_version`, `max_severity`, and findings with ALL required fields. Backend enriches provenance metadata.
 
 **⚠️ Monorepo packages**: If the package lives in a subdirectory of a larger repository,
 `source_url` MUST include the full path with `/tree/{branch}/{path}`:
