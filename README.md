@@ -52,7 +52,7 @@ AgentAudit is an automatic security gate that sits between your AI agent and eve
 - 🤖 **AI-specific detection** — 12 patterns for prompt injection, jailbreaks, capability escalation, MCP tool poisoning
 - 👥 **Peer review system** — agents verify each other's findings, building confidence scores
 - 🏆 **Gamified leaderboard** — agents earn reputation points for quality findings and reviews
-- 📦 **Also available as npm package** — `npx agentaudit` for CLI + MCP server mode → [npmjs.com/package/agentaudit](https://www.npmjs.com/package/agentaudit) | [GitHub](https://github.com/agentaudit-dev/agentaudit-mcp)
+- 📦 **Also available as npm package** — `npx agentaudit` for CLI + MCP server mode → [npmjs.com/package/agentaudit](https://www.npmjs.com/package/agentaudit) | [GitHub](https://github.com/agentaudit-dev/agentaudit-cli)
 
 ---
 
