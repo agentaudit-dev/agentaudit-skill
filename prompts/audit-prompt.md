@@ -314,13 +314,26 @@ Even though the LLM is the primary caller, tool arguments may originate from:
 
 Therefore: any tool argument that reaches a dangerous sink (file system, shell, network, database) without validation IS a vulnerability, regardless of whether the operation is "expected behavior."
 
+**Beyond tool arguments — other untrusted input sources:**
+- OAuth/OIDC server metadata (`authorization_endpoint`, `token_endpoint`, issuer URLs)
+- API responses (URLs, file names, paths returned by external services like Figma, GitHub, etc.)
+- Remote configuration (server URLs, webhook endpoints, registry metadata)
+- URL parameters and query strings from callback handlers
+- Any data originating from a server the package connects TO (the remote server could be malicious)
+
+Therefore: any **external input** — whether from tool arguments, API responses, OAuth flows, or remote configuration — that reaches a dangerous sink without validation IS a vulnerability.
+
 **Examples:**
 ```
 ✅ FINDING: file_write(path=request.params.path) where path is not validated → PATH_TRAV
 ✅ FINDING: install_extension(path=request.params.path) without path restriction → SEC_BYPASS
 ✅ FINDING: execute_query(sql=request.params.query) with string interpolation → SQL injection
+✅ FINDING: open(authorizationUrl) where URL comes from remote OAuth server → CMD_INJECT
+✅ FINDING: exec(`curl "${url}"`) where url contains API parameters from tool args → CMD_INJECT
+✅ FINDING: path.startsWith(allowedDir) without trailing separator → PATH_TRAV
 ❌ NOT A FINDING: execute_query(sql) where sql is passed as parameterized value
 ❌ NOT A FINDING: file_write(path) where path is validated against allowlist/root directory
+❌ NOT A FINDING: open(hardcodedUrl) where URL is a compile-time constant
 ```
 
 ## 3.6 Exploitability Assessment (Mandatory for every candidate)
@@ -645,7 +658,7 @@ Consult these patterns during Phase 2 evidence collection. Remember: a pattern m
 
 ## 🔴 CRITICAL Patterns
 
-- **Command injection** (`CMD_INJECT_001`): Unsanitized input to `exec()`, `system()`, `subprocess`, backticks, `eval()`. Input MUST come from untrusted source.
+- **Command injection** (`CMD_INJECT_001`): Unsanitized input to `exec()`, `system()`, `subprocess`, backticks, `eval()`, or `open()` (URL launcher — uses platform shell). Input MUST come from untrusted source. **Template literal injection**: `` exec(`cmd ${variable}`) `` or `exec("cmd " + variable)` is ALWAYS injection when variable contains external input — even if the variable looks like a URL or file path.
 - **Credential theft** (`CRED_THEFT_001`): Reads AND sends full secrets (API keys/SSH keys) to external server. Collecting env var *names* (not values) is INFO_LEAK (MEDIUM). Partial credentials = MEDIUM-HIGH.
 - **Data exfiltration** (`DATA_EXFIL_001`): Sends files/env/workspace to external endpoints via HTTP/HTTPS POST, WebSocket, gRPC, DNS queries (subdomain encoding), webhooks, Base64 URL params, UDP.
 - **Destructive operations** (`DESTRUCT_001`): `rm -rf /`, `format`, FS wiping without safeguards.
@@ -675,6 +688,8 @@ Consult these patterns during Phase 2 evidence collection. Remember: a pattern m
 - **Environment variable injection** (`CMD_INJECT_004`): Writes to `PATH`, `LD_PRELOAD`, `NODE_OPTIONS`, `PYTHONPATH`.
 - **Prototype pollution** (`SEC_BYPASS_004`): Recursive merge without `__proto__`/`constructor`/`prototype` guards. Library params ARE untrusted. If + `eval()`/`Function()` in same package → CRITICAL.
 - **MCP path traversal** (`MCP_TRAVERSAL_001`): File tools don't sanitize paths (allows `../../../etc/passwd`).
+- **URL command injection via `open()`** (`CMD_INJECT_005`): The `open` npm package / Python `webbrowser.open()` / `xdg-open` / `start` pass URLs through the system shell. A malicious URL (e.g., from OAuth `authorization_endpoint` or API response) can inject shell commands. Pattern: `import open from 'open'` + `open(externalUrl)` where externalUrl is not hardcoded.
+- **Path validation bypass via `startsWith()`** (`PATH_TRAV_002`): `path.startsWith(allowedDir)` without trailing separator check. `/home/user` matches `/home/username`. Fix requires `startsWith(dir + path.sep) || path === dir`. ALWAYS flag when `startsWith` is used for path boundary enforcement without separator.
 - **IDE extension abuse** (`PRIV_ESC_002`): VS Code/JetBrains extensions reading credential stores, exfiltrating workspace.
 
 ## 🟡 MEDIUM Patterns
@@ -731,6 +746,9 @@ Consult these patterns during Phase 2 evidence collection. Remember: a pattern m
 6. **Arguments passed to `exec()`/`system()`/`installExtension()`/dangerous sinks without sanitization?** MCP tool arguments are untrusted. Trace from `request.params.*` → to execution. ANY unsanitized path is PATH_TRAV, ANY unsanitized string in exec is CMD_INJECT.
 7. Error messages — info leaks or injection payloads?
 8. **Unrestricted destructive operations** — delete, overwrite, install operations that take user-controlled targets without access control or scope restriction.
+9. **`open()` / URL launcher with external URLs** — does the package call `open()`, `webbrowser.open()`, `xdg-open`, `start` with URLs from external sources (OAuth endpoints, API responses)? If the URL is not hardcoded, this is command injection via platform shell.
+10. **Path validation logic** — does the package use `startsWith()` for path boundary enforcement WITHOUT trailing separator? `/allowed`.startsWith(`/allowed`) is true but so is `/allowed_extra`. Also check: does symlink resolution happen BEFORE or AFTER the boundary check?
+11. **ALL external input sources** — trace not just MCP tool arguments but also OAuth URLs, API responses, remote config, file names from external services to dangerous sinks (exec, fs, network).
 
 ---
 
@@ -754,10 +772,19 @@ Consult these patterns during Phase 2 evidence collection. Remember: a pattern m
 9. ✅ **`terraform-mcp-server`**: "Unverified external binary download and execution in CI workflow" rated HIGH. Reality: CI workflow downloads binary without checksum verification. ✅ HIGH correct.
 10. ✅ **`mcp-grafana`**: "Insecure TLS certificate verification bypass enabled by flag" rated MEDIUM. Reality: Flag allows disabling TLS verification for Grafana API calls. ✅ MEDIUM correct.
 
+## Real-World CVE True Positives (Published vulnerabilities)
+
+11. ✅ **`figma-developer-mcp` (CVE-2025-53967)**: Command injection in `fetchWithRetry()` — `` exec(`curl ... "${url}"`) `` where `url` contains unsanitized Figma API parameters (fileKey from tool argument flows through service layer to curl command). Attack: inject `$(id>/tmp/TEST)` as fileKey → RCE when fetch fallback triggers. ✅ CRITICAL correct.
+12. ✅ **`mcp-remote` (CVE-2025-6514)**: OS command injection via `open(authorizationUrl)` where authorizationUrl comes from malicious OAuth server's `authorization_endpoint`. The `open` npm package uses platform shell commands (`start`, `xdg-open`) that execute injected commands in the URL. ✅ HIGH correct.
+13. ✅ **`@modelcontextprotocol/server-filesystem` (CVE-2025-53110)**: Path prefix collision — `validatePath()` uses `normalizedRequested.startsWith(dir)` without trailing separator. If `/home/user` is allowed, `/home/username/secret` also passes the check. ✅ HIGH correct.
+
 **Key lesson from these real-world TPs:**
 - A feature being "expected behavior" does NOT exempt it from input validation requirements
 - MCP tool arguments are untrusted — missing validation on paths/URLs reaching fs/exec IS a finding
 - Opt-in features can still have implementation vulnerabilities that should be flagged
+- **Untrusted input is NOT limited to tool arguments** — OAuth URLs, API responses, and remote config are equally dangerous
+- **`open()` is a dangerous sink** — it passes URLs through the system shell on most platforms
+- **`startsWith()` for path validation is almost always wrong** without a trailing separator check
 
 ## Incorrect Findings (False Positives — DO NOT repeat)
 
