@@ -158,7 +158,7 @@ For each evidence item from Phase 2, apply the following checks IN ORDER.
 
 | # | Question | If YES → |
 |---|----------|----------|
-| 1 | Is this the package's documented core functionality? (Check Package Profile "Expected Behaviors") | **NOT a finding** (or at most LOW/by_design). See Core-Functionality-Exemption below. |
+| 1 | Is this the package's documented core functionality AND does the implementation properly validate/sanitize its inputs? | Only if BOTH are true → **at most LOW/by_design**. If the feature is core but has implementation flaws (missing input validation, unsanitized paths, no access control) → it IS a finding at normal severity. See Core-Functionality-Exemption below. |
 | 2 | Do I have a specific file:line:code snippet as evidence? | If NO → **DO NOT report**. Speculative findings are never findings. |
 | 3 | Is this a `.env`, `.env.example`, or `process.env`/`os.environ` pattern for self-configuration? | **NOT a finding** (unless the credential is exfiltrated to an external endpoint). |
 | 4 | Can I write a concrete 2-sentence attack scenario? | If NO → **Maximum severity LOW**. |
@@ -238,7 +238,7 @@ A package that integrates multiple APIs requiring multiple credentials is a feat
 - Negation contexts ("never use eval"), install docs (`sudo apt`)
 
 ### ❌ Opt-In Features with Safety Warnings ≠ Default Vulnerabilities
-If a feature must be EXPLICITLY enabled (via env var, config flag, CLI option) AND the naming/docs warn about risks, this is NOT a vulnerability in the default configuration.
+If a feature must be EXPLICITLY enabled (via env var, config flag, CLI option) AND the naming/docs warn about risks, the EXISTENCE of that feature is NOT a vulnerability.
 ```
 ❌ FALSE POSITIVE: MCP server has ENABLE_UNSAFE_SSE_TRANSPORT env var (default: unset/disabled) → NOT Critical (at most LOW/by_design)
 ❌ FALSE POSITIVE: Helm chart has useLegacyRules: false with documented "not recommended for production" → NOT a finding (defaults are safe)
@@ -247,6 +247,8 @@ If a feature must be EXPLICITLY enabled (via env var, config flag, CLI option) A
 ✅ TRUE POSITIVE: Admin panel accessible without auth unless DISABLE_ADMIN=true → IS a finding (default is insecure)
 ```
 **Key distinction:** "Vulnerable if operator explicitly opts in" (LOW/by_design) vs "Vulnerable by default" (HIGH/CRITICAL). Count the prerequisites — each explicit opt-in step REDUCES severity.
+
+**IMPORTANT:** Opt-in reduces severity for the EXISTENCE of a feature, but NOT for implementation flaws WITHIN the feature. If an opt-in feature has missing input validation, path traversal, or injection vulnerabilities, those are still findings at normal severity when the feature is enabled.
 
 ### ❌ Secure Code Patterns ≠ Injection Vulnerabilities
 These code patterns are SECURE and must NOT be flagged:
@@ -271,7 +273,18 @@ If you cannot find the EXACT code pattern in the provided source files, do NOT r
 If the pattern is in the Package Profile's "Expected Behaviors" list:
 - It **CANNOT** be MEDIUM or higher severity
 - It is either **NOT a finding** or at most **LOW / by_design**
-- **EXCEPTIONS** (still flag even if expected): Unescaped identifier interpolation, missing parameterization of VALUES, missing operation allowlists
+- **EXCEPTIONS** (still flag at normal severity even if expected behavior):
+  - Unescaped identifier interpolation, missing parameterization of VALUES, missing operation allowlists
+  - **Missing input validation/sanitization on file paths** (path traversal in file-handling tools)
+  - **Missing input validation on tool arguments** that reach dangerous sinks (exec, fs.write, network calls)
+  - **Missing access control on destructive operations** (delete, overwrite, install)
+
+**IMPORTANT — Feature vs Implementation Flaw:**
+A feature can be "expected behavior" while still having implementation flaws. Distinguish:
+- "The server writes files" → expected, by_design
+- "The server writes files to unsanitized user-controlled paths" → vulnerability (PATH_TRAV)
+- "The server installs extensions" → expected, by_design
+- "The server installs extensions from any arbitrary path without validation" → vulnerability (SEC_BYPASS)
 
 ## 3.4 Credential-Config-Normalization (Hard Rule)
 
@@ -290,7 +303,28 @@ If the pattern is in the Package Profile's "Expected Behaviors" list:
 2. Credentials are logged/printed at INFO level or higher in production code paths
 3. Credentials are sent to unexpected external endpoints (exfiltration)
 
-## 3.5 Exploitability Assessment (Mandatory for every candidate)
+## 3.5 MCP Trust Boundary Rule
+
+**In MCP servers, ALL tool arguments from the LLM/client are UNTRUSTED input.**
+
+Even though the LLM is the primary caller, tool arguments may originate from:
+- Prompt injection attacks (malicious content in documents, web pages, emails)
+- Compromised or malicious MCP clients
+- Multi-agent systems where upstream agents are untrusted
+
+Therefore: any tool argument that reaches a dangerous sink (file system, shell, network, database) without validation IS a vulnerability, regardless of whether the operation is "expected behavior."
+
+**Examples:**
+```
+✅ FINDING: file_write(path=request.params.path) where path is not validated → PATH_TRAV
+✅ FINDING: install_extension(path=request.params.path) without path restriction → SEC_BYPASS
+✅ FINDING: execute_query(sql=request.params.query) with string interpolation → SQL injection
+❌ NOT A FINDING: execute_query(sql) where sql is passed as parameterized value
+❌ NOT A FINDING: file_write(path) where path is validated against allowlist/root directory
+```
+
+## 3.6 Exploitability Assessment (Mandatory for every candidate)
+
 
 For each candidate finding, evaluate:
 
@@ -313,7 +347,7 @@ For each candidate finding, evaluate:
 
 **If you cannot describe a concrete 2-sentence attack scenario, the finding is NOT CRITICAL or HIGH.**
 
-## 3.6 Devil's Advocate (Mandatory for HIGH and CRITICAL)
+## 3.7 Devil's Advocate (Mandatory for HIGH and CRITICAL)
 
 Before any finding becomes HIGH or CRITICAL, you MUST argue AGAINST it:
 
@@ -326,7 +360,7 @@ DEVIL'S ADVOCATE:
 
 If the counter-argument is stronger than the finding → demote or exclude.
 
-## 3.7 Reasoning Chain (Mandatory for HIGH and CRITICAL)
+## 3.8 Reasoning Chain (Mandatory for HIGH and CRITICAL)
 
 Every HIGH or CRITICAL finding MUST include this explicit reasoning:
 
@@ -342,7 +376,7 @@ THEREFORE: severity = [X]
 
 If you cannot complete steps 3 or 5, demote to MEDIUM or lower.
 
-## 3.8 Severity Assignment
+## 3.9 Severity Assignment
 
 ### Severity Anchoring
 
@@ -408,7 +442,7 @@ If you cannot complete steps 3 or 5, demote to MEDIUM or lower.
 
 If data collection or exfiltration is gated behind CI environment variables (`process.env.CI`, `GITHUB_ACTIONS`, `JENKINS_URL`, `TRAVIS`, `CIRCLECI`, `GITLAB_CI`), escalate findings within the CI-gated block by one severity level. A legitimate library has no reason to conditionally activate data collection only in CI. Only escalate findings whose code is inside or triggered by the CI-conditional block.
 
-## 3.9 By-Design Classification
+## 3.10 By-Design Classification
 
 A finding is `by_design: true` ONLY when ALL FOUR are true:
 1. **Core purpose**: Pattern is essential to documented purpose (not side-effect)
@@ -436,7 +470,7 @@ If **any** fails → real vulnerability (`by_design: false`).
 - **Development-mode fallbacks** (e.g. fallback JWT secret when env var is not set, localhost-only defaults): Standard in web frameworks. If the fallback only activates in development/missing-config scenarios and production requires explicit configuration → `by_design: true`.
 - **Transparent monetization** (e.g. referral fees, affiliate links, commission systems): If the package EXPLICITLY documents its monetization model in README/SKILL.md and the user can see it before using → `by_design: true`. The finding is still valuable as information but should not count against trust score. Note: UNDISCLOSED affiliate links (hidden in URLs without documentation) are NOT by_design.
 
-## 3.10 Final Triage
+## 3.11 Final Triage
 
 ### Finding Quality Check
 
@@ -649,7 +683,7 @@ Consult these patterns during Phase 2 evidence collection. Remember: a pattern m
 - **Insecure protocols** (`SEC_BYPASS_005`): HTTP for sensitive data.
 - **Overly broad permissions** (`PRIV_ESC_003`): Read all files/env/network when not needed.
 - **Unsafe deserialization (local)** (`DESER_001`): `pickle.loads()`, `yaml.load()` without safe loader on LOCAL data. Remote source → CRITICAL.
-- **Path traversal** (`PATH_TRAV_001`): Unsanitized `../` in paths.
+- **Path traversal** (`PATH_TRAV_001`): Unsanitized user-controlled path reaching filesystem operations. Patterns: `path.resolve(userInput)` + `fs.writeFile`, `fs.readFile(userInput)`, `fs.rm(userInput)`. The `../` characters need NOT be present in the source — the vulnerability is that the user CAN supply them at runtime.
 - **Weak crypto** (`CRYPTO_WEAK_001`): MD5/SHA1 for security, hardcoded IVs. Always report as separate finding.
 - **Capability escalation**: Instructions to "enable dev mode", "unlock capabilities", "bypass restrictions".
 - **Context pollution**: "remember forever", "inject into context", "prepend to every response".
@@ -691,11 +725,12 @@ Consult these patterns during Phase 2 evidence collection. Remember: a pattern m
 
 1. Tool descriptions/schemas — hidden instructions or prompt injection?
 2. Transport config — `npx -y` without version pinning?
-3. File access tools — path sanitization?
+3. **File access tools — path sanitization?** Trace EVERY tool handler that takes a file path, directory path, or URL from `request.params` → check if it reaches `fs.writeFile`, `fs.readFile`, `fs.rm`, `path.resolve`, `path.join` WITHOUT validation against an allowlist or root directory constraint.
 4. Permissions — minimal scope, documented?
 5. Descriptions match code behavior?
-6. Arguments passed to `exec()`/`system()` without sanitization?
+6. **Arguments passed to `exec()`/`system()`/`installExtension()`/dangerous sinks without sanitization?** MCP tool arguments are untrusted. Trace from `request.params.*` → to execution. ANY unsanitized path is PATH_TRAV, ANY unsanitized string in exec is CMD_INJECT.
 7. Error messages — info leaks or injection payloads?
+8. **Unrestricted destructive operations** — delete, overwrite, install operations that take user-controlled targets without access control or scope restriction.
 
 ---
 
@@ -710,6 +745,19 @@ Consult these patterns during Phase 2 evidence collection. Remember: a pattern m
 3. **`osint-graph-analyzer`**: Cypher injection — user input directly interpolated into Neo4j queries (scripts/osint-graph.py:57). ✅ CRITICAL correct.
 4. **`bgauryy--octocode-mcp`**: Shell injection via `execAsync()` with shell-string interpolation of `symbolName` in lspReferencesPatterns.ts:317. ✅ HIGH correct.
 5. **`mendez1212--automation-workflows`**: Obfuscated Lua malware payload with luajit dropper. ✅ CRITICAL correct — 10/10 findings valid.
+
+## Real-World True Positives (Confirmed by manual code review)
+
+6. ✅ **`chrome-devtools-mcp`**: "Arbitrary file write due to unsanitized user-controlled paths" rated HIGH. Reality: `path.resolve(filename)` + `fs.writeFile(filePath, data)` at McpContext.ts:840 — writes to any path without validation. Attack: prompt injection causes LLM to call file_write with `../../etc/crontab`. ✅ HIGH correct.
+7. ✅ **`chrome-devtools-mcp`**: "Arbitrary Chrome extension installation via tool parameter" rated HIGH. Reality: `context.installExtension(path)` takes unsanitized path from MCP tool arg. Even though gated behind experimentalExtensionSupport, when enabled there's no path restriction. ✅ HIGH correct (when feature enabled).
+8. ✅ **`terraform-mcp-server`**: "Insecure TLS verification enabled for Terraform Cloud client" rated HIGH. Reality: TLS verification disabled in registry client (registry.go). ✅ HIGH correct.
+9. ✅ **`terraform-mcp-server`**: "Unverified external binary download and execution in CI workflow" rated HIGH. Reality: CI workflow downloads binary without checksum verification. ✅ HIGH correct.
+10. ✅ **`mcp-grafana`**: "Insecure TLS certificate verification bypass enabled by flag" rated MEDIUM. Reality: Flag allows disabling TLS verification for Grafana API calls. ✅ MEDIUM correct.
+
+**Key lesson from these real-world TPs:**
+- A feature being "expected behavior" does NOT exempt it from input validation requirements
+- MCP tool arguments are untrusted — missing validation on paths/URLs reaching fs/exec IS a finding
+- Opt-in features can still have implementation vulnerabilities that should be flagged
 
 ## Incorrect Findings (False Positives — DO NOT repeat)
 
