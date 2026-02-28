@@ -237,6 +237,35 @@ A package that integrates multiple APIs requiring multiple credentials is a feat
 - Test files with deliberate vulnerabilities
 - Negation contexts ("never use eval"), install docs (`sudo apt`)
 
+### ❌ Opt-In Features with Safety Warnings ≠ Default Vulnerabilities
+If a feature must be EXPLICITLY enabled (via env var, config flag, CLI option) AND the naming/docs warn about risks, this is NOT a vulnerability in the default configuration.
+```
+❌ FALSE POSITIVE: MCP server has ENABLE_UNSAFE_SSE_TRANSPORT env var (default: unset/disabled) → NOT Critical (at most LOW/by_design)
+❌ FALSE POSITIVE: Helm chart has useLegacyRules: false with documented "not recommended for production" → NOT a finding (defaults are safe)
+❌ FALSE POSITIVE: Debug mode available via DEBUG=true env var → NOT a finding (operator must enable it)
+✅ TRUE POSITIVE: SSE transport enabled by default without authentication → IS a finding (default is insecure)
+✅ TRUE POSITIVE: Admin panel accessible without auth unless DISABLE_ADMIN=true → IS a finding (default is insecure)
+```
+**Key distinction:** "Vulnerable if operator explicitly opts in" (LOW/by_design) vs "Vulnerable by default" (HIGH/CRITICAL). Count the prerequisites — each explicit opt-in step REDUCES severity.
+
+### ❌ Secure Code Patterns ≠ Injection Vulnerabilities
+These code patterns are SECURE and must NOT be flagged:
+```
+❌ FALSE POSITIVE: execFileSync("kubectl", cmdArgs) where cmdArgs is an array → NOT shell injection (array args bypass shell)
+❌ FALSE POSITIVE: execFile(command, [arg1, arg2]) → NOT command injection (no shell interpolation)
+❌ FALSE POSITIVE: subprocess.run(["git", "clone", url]) → NOT injection (list form, no shell=True)
+✅ TRUE POSITIVE: exec(`kubectl ${userInput}`) → IS command injection (string concatenation with shell)
+✅ TRUE POSITIVE: execSync("git clone " + url) → IS command injection (string concatenation)
+```
+**Key distinction:** Array-based process spawning (`execFile`/`execFileSync` with args array, `subprocess.run` with list) does NOT use a shell and CANNOT be injected. Only string-based execution (`exec`, `execSync`, `shell=True`) is vulnerable.
+
+### ❌ Never Fabricate Code That Doesn't Exist
+If you cannot find the EXACT code pattern in the provided source files, do NOT report it. Specifically:
+- Do NOT invent HTTP headers (e.g., `Access-Control-Allow-Origin: *`) that are not in the source code
+- Do NOT assume a file contains code based on its name — VERIFY by reading it
+- Do NOT report line numbers you haven't verified against actual file content
+- If a vulnerability would exist in a dependency (e.g., Express defaults, MCP SDK) but NOT in the scanned package's code, it is NOT a finding for this package
+
 ## 3.3 Core-Functionality-Exemption (Hard Rule)
 
 If the pattern is in the Package Profile's "Expected Behaviors" list:
@@ -272,8 +301,9 @@ For each candidate finding, evaluate:
 - **None** (requires code modification) → likely NOT a finding
 
 ### Attack Complexity
-- **Low**: No special conditions, works out of the box
+- **Low**: No special conditions, works out of the box with default configuration
 - **High**: Requires specific config, race conditions, chained exploits → cap at MEDIUM unless catastrophic impact
+- **Opt-in required**: Vulnerability only exists if operator explicitly enables a feature (env var, config flag) → cap at LOW. Each required opt-in step reduces severity by one level.
 
 ### Privileges & Interaction Required
 - More prerequisites → lower realistic severity
