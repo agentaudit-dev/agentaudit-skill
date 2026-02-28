@@ -6,11 +6,11 @@
  *   agentaudit                                     Discover local MCP servers
  *   agentaudit discover [--quick|--deep]            Find MCP servers in AI editors
  *   agentaudit scan <repo-url> [--deep]             Quick scan (or deep audit with --deep)
- *   agentaudit audit <repo-url>                     Deep LLM-powered security audit
+ *   agentaudit audit <repo-url> [--verify self]     Deep LLM-powered security audit (verification enabled by default)
  *   agentaudit lookup <name>                        Look up package in registry
  *   agentaudit setup                                Register + configure API key
  * 
- * Global flags: --json, --quiet, --no-color
+ * Global flags: --json, --quiet, --no-color, --verify, --timeout
  */
 
 import fs from 'fs';
@@ -1062,7 +1062,7 @@ async function discoverCommand(options = {}) {
         unauditedServers++;
         console.log(`${branch}  ${c.bold}${server.name}${c.reset}    ${sourceLabel}`);
         if (resolvedUrl) {
-          console.log(`${pipe}  ${c.yellow}⚠ not audited${c.reset}  ${c.dim}Run: ${c.cyan}agentaudit audit ${resolvedUrl}${c.reset}`);
+          console.log(`${pipe}  ${c.yellow}⚠ not audited${c.reset}  ${c.dim}Run: ${c.cyan}agentaudit audit ${resolvedUrl} --verify self${c.reset}`);
           unauditedWithUrls.push({ name: server.name, sourceUrl: resolvedUrl });
           allServersWithUrls.push({ name: server.name, sourceUrl: resolvedUrl, hasAudit: false });
         } else {
@@ -1189,11 +1189,11 @@ async function discoverCommand(options = {}) {
     if (unauditedWithUrls.length > 0) {
       console.log(`  ${c.dim}To audit unaudited servers:${c.reset}`);
       for (const { name, sourceUrl } of unauditedWithUrls) {
-        console.log(`  ${c.cyan}agentaudit audit ${sourceUrl}${c.reset}  ${c.dim}(${name})${c.reset}`);
+        console.log(`  ${c.cyan}agentaudit audit ${sourceUrl} --verify self${c.reset}  ${c.dim}(${name})${c.reset}`);
       }
     } else {
       console.log(`  ${c.dim}To audit unaudited servers, run:${c.reset}`);
-      console.log(`  ${c.cyan}agentaudit audit <source-url>${c.reset}`);
+      console.log(`  ${c.cyan}agentaudit audit <source-url> --verify self${c.reset}`);
     }
     console.log();
     console.log(`  ${c.dim}Or run ${c.cyan}agentaudit discover --quick${c.dim} to quick-scan all servers${c.reset}`);
@@ -1281,7 +1281,7 @@ async function auditRepo(url) {
     console.log(`  ${c.dim}set OPENAI_API_KEY=sk-...${c.reset}`);
     console.log();
     console.log(`  ${c.bold}Option 2: Export for manual review${c.reset}`);
-    console.log(`  ${c.cyan}agentaudit audit ${url} --export${c.reset}`);
+    console.log(`  ${c.cyan}agentaudit audit ${url} --verify self --export${c.reset}`);
     console.log(`  ${c.dim}Creates a markdown file you can paste into any LLM (Claude, ChatGPT, etc.)${c.reset}`);
     console.log();
     console.log(`  ${c.bold}Option 3: Use MCP in Claude/Cursor/Windsurf (no API key needed)${c.reset}`);
@@ -1469,7 +1469,7 @@ async function checkPackage(name) {
   if (!data) {
     if (!jsonMode) {
       console.log(`  ${c.yellow}Not found${c.reset} — package "${name}" hasn't been audited yet.`);
-      console.log(`  ${c.dim}Run: agentaudit audit <repo-url> for a deep LLM audit${c.reset}`);
+      console.log(`  ${c.dim}Run: agentaudit audit <repo-url> --verify self for a deep LLM audit${c.reset}`);
     }
     return null;
   }
@@ -1516,6 +1516,7 @@ async function main() {
     console.log(`    ${c.cyan}agentaudit scan${c.reset} <url> [url...]               Quick static scan (regex, local)`);
     console.log(`    ${c.cyan}agentaudit scan${c.reset} <url> ${c.dim}--deep${c.reset}                Deep audit (same as audit)`);
     console.log(`    ${c.cyan}agentaudit audit${c.reset} <url> [url...]              Deep LLM-powered security audit`);
+    console.log(`    ${c.cyan}agentaudit audit${c.reset} <url> ${c.dim}--verify self${c.reset}        Audit + verification pass (default)`);
     console.log(`    ${c.cyan}agentaudit lookup${c.reset} <name>                     Look up package in registry`);
     console.log(`    ${c.cyan}agentaudit setup${c.reset}                             Register + configure API key`);
     console.log();
@@ -1526,7 +1527,7 @@ async function main() {
     console.log();
     console.log(`  ${c.bold}Quick Scan${c.reset} vs ${c.bold}Deep Audit${c.reset}:`);
     console.log(`    ${c.dim}scan  = fast regex-based static analysis (~2s)${c.reset}`);
-    console.log(`    ${c.dim}audit = deep LLM analysis with 3-pass methodology (~30s)${c.reset}`);
+    console.log(`    ${c.dim}audit = deep LLM analysis with 3-pass methodology + verification (~30-60s)${c.reset}`);
     console.log();
     console.log(`  ${c.bold}Exit codes:${c.reset}`);
     console.log(`    ${c.dim}0 = clean / success    1 = findings detected    2 = error${c.reset}`);
@@ -1535,7 +1536,7 @@ async function main() {
     console.log(`    agentaudit`);
     console.log(`    agentaudit discover --quick`);
     console.log(`    agentaudit scan https://github.com/owner/repo`);
-    console.log(`    agentaudit audit https://github.com/owner/repo`);
+    console.log(`    agentaudit audit https://github.com/owner/repo --verify self`);
     console.log(`    agentaudit lookup fastmcp --json`);
     console.log();
     console.log(`  ${c.bold}For deep audits,${c.reset} set an LLM API key:`);
@@ -1597,7 +1598,7 @@ async function main() {
     if (urls.length === 0) {
       console.log(`  ${c.red}Error: at least one repository URL required${c.reset}`);
       console.log(`  ${c.dim}Tip: use ${c.cyan}agentaudit discover${c.dim} to find & check locally installed MCP servers${c.reset}`);
-      console.log(`  ${c.dim}Tip: use ${c.cyan}agentaudit audit <url>${c.dim} for a deep LLM-powered audit${c.reset}`);
+      console.log(`  ${c.dim}Tip: use ${c.cyan}agentaudit audit <url> --verify self${c.dim} for a deep LLM-powered audit${c.reset}`);
       process.exitCode = 2;
       return;
     }

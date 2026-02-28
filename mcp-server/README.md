@@ -58,8 +58,8 @@ agentaudit
 # Quick scan a specific repo
 agentaudit scan https://github.com/owner/repo
 
-# Deep LLM-powered audit
-agentaudit audit https://github.com/owner/repo
+# Deep LLM-powered audit (with verification pass enabled by default)
+agentaudit audit https://github.com/owner/repo --verify self
 
 # Look up a package in the trust registry
 agentaudit lookup fastmcp
@@ -77,7 +77,7 @@ agentaudit lookup fastmcp
 ├──  tool   supabase-mcp              ✔ ok
 │   SAFE  Risk 0  https://agentaudit.dev/packages/supabase-mcp
 ├──  tool   browser-tools-mcp         ✔ ok
-│   ⚠ not audited  Run: agentaudit audit https://github.com/nichochar/browser-tools-mcp
+│   ⚠ not audited  Run: agentaudit audit https://github.com/nichochar/browser-tools-mcp --verify self
 └──  tool   filesystem                ✔ ok
 │   SAFE  Risk 0  https://agentaudit.dev/packages/filesystem
 
@@ -128,7 +128,7 @@ Your AI agent can then use AgentAudit's tools to scan packages directly within y
 | `agentaudit discover --deep` | Discover + interactively select servers to deep-audit | `agentaudit discover --deep` |
 | `agentaudit scan <url>` | Quick regex-based static scan (~2s) | `agentaudit scan https://github.com/owner/repo` |
 | `agentaudit scan <url> --deep` | Deep audit (same as `audit`) | `agentaudit scan https://github.com/owner/repo --deep` |
-| `agentaudit audit <url>` | Deep LLM-powered 3-pass audit (~30s) | `agentaudit audit https://github.com/owner/repo` |
+| `agentaudit audit <url>` | Deep LLM-powered 3-pass audit (~30s) | `agentaudit audit https://github.com/owner/repo --verify self` |
 | `agentaudit lookup <name>` | Look up package in trust registry | `agentaudit lookup fastmcp` |
 | `agentaudit setup` | Register agent + configure API key | `agentaudit setup` |
 
@@ -141,6 +141,15 @@ Your AI agent can then use AgentAudit's tools to scan packages directly within y
 | `--no-color` | Disable ANSI colors (also respects `NO_COLOR` env var) |
 | `--help` / `-h` | Show help text |
 | `-v` / `--version` | Show version |
+
+### Audit Flags
+
+| Flag | Description |
+|------|-------------|
+| `--verify self` | Self-verification pass (default) — re-checks each finding against source code |
+| `--verify cross` | Cross-model verification — uses a different model to verify findings |
+| `--no-verify` | Skip verification pass (faster, but higher false positive rate) |
+| `--timeout <sec>` | LLM request timeout in seconds (default: 180, max: 600) |
 
 ### Exit Codes
 
@@ -159,11 +168,12 @@ Your AI agent can then use AgentAudit's tools to scan packages directly within y
 | **Speed** | ~2 seconds | ~30 seconds |
 | **Method** | Regex pattern matching | LLM-powered 3-pass analysis |
 | **API key needed** | No | Yes (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`) |
-| **False positives** | Higher (regex limitations) | Very low (context-aware) |
+| **False positives** | Higher (regex limitations) | Very low (context-aware + verification pass) |
+| **Verification** | N/A | `--verify self` (default) reduces FPs by ~50% |
 | **Detects** | Common patterns (injection, secrets, eval) | Complex attack chains, AI-specific threats, obfuscation |
 | **Best for** | Quick triage, CI pipelines | Critical packages, pre-production review |
 
-**Tip:** Use `agentaudit scan <url> --deep` to run a deep audit via the scan command.
+**Tip:** Use `agentaudit scan <url> --deep` to run a deep audit via the scan command. Add `--verify self` for verification (enabled by default in v3.13+).
 
 ---
 
@@ -265,15 +275,16 @@ Agent calls check_registry(package_name)
 
 ## 🧠 How the 3-Pass Audit Works
 
-The deep audit (`agentaudit audit`) uses a structured 3-phase LLM analysis — not a single-shot prompt, but a rigorous multi-pass process:
+The deep audit (`agentaudit audit --verify self`) uses a structured 3-phase LLM analysis plus a verification pass — not a single-shot prompt, but a rigorous multi-pass process:
 
 | Phase | Name | What Happens |
 |-------|------|-------------|
 | **1** | 🔍 **UNDERSTAND** | Read all files and build a **Package Profile**: purpose, category, expected behaviors, trust boundaries. No scanning yet — the goal is to understand what the package *should* do before looking for what it *shouldn't*. |
 | **2** | 🎯 **DETECT** | Evidence collection against **50+ detection patterns** across 8 categories (AI-specific, MCP, persistence, obfuscation, cross-file correlation). Only facts are recorded — no severity judgments yet. |
 | **3** | ⚖️ **CLASSIFY** | Every finding goes through a **Mandatory Self-Check** (5 questions), **Exploitability Assessment**, and **Confidence Gating**. HIGH/CRITICAL findings must survive a **Devil's Advocate** challenge and include a full **Reasoning Chain**. |
+| **4** | ✅ **VERIFY** | Each finding is re-checked against the actual source code using a 5-point adversarial checklist. Findings are `verified`, `demoted` (severity reduced), or `rejected` (false positive removed). Enabled by default with `--verify self`. |
 
-**Why 3 passes?** Single-pass analysis is the #1 cause of false positives. By separating understanding → detection → classification:
+**Why 3 passes + verification?** Single-pass analysis is the #1 cause of false positives. By separating understanding → detection → classification → verification:
 
 - Phase 1 prevents flagging core functionality as suspicious (e.g., SQL execution in a database tool)
 - Phase 2 ensures evidence is collected without severity bias

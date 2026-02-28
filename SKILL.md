@@ -5,7 +5,7 @@ description: Automatic security gate that checks packages against a vulnerabilit
 
 ## 📋 Metadata
 
-**Version**: 3.0
+**Version**: 3.13
 **Author**: agentaudit-dev
 **Homepage**: https://agentaudit.dev
 **Repository**: https://github.com/agentaudit-dev/agentaudit-skill
@@ -149,6 +149,28 @@ When you run an audit (via `audit-prompt.md`), you follow a strict 3-phase proce
 
 **Why this matters:** This architecture achieved 0% false positives on 11 test packages (vs 42% FP in v2). It prevents the most common LLM audit failures: flagging core functionality, over-reporting credential config, and inflating severities without evidence.
 
+### Verification Pass (v3.13+)
+
+After the 3-pass audit, a **verification pass** re-checks each finding against the actual source code. This dramatically reduces false positives (from ~70% to ~30% in real-world benchmarks).
+
+**How it works**: Each candidate finding is challenged with a 5-point checklist:
+1. **Code Existence** — Does the cited code actually exist?
+2. **Context** — Is this core functionality or an actual vulnerability?
+3. **Execution Model** — Is user input actually reachable?
+4. **Severity Calibration** — Is the severity justified?
+5. **Fabrication Detection** — Is any part of the finding hallucinated?
+
+Verdicts: `verified` (confirmed), `demoted` (severity reduced), `rejected` (false positive removed).
+
+**CLI usage** (enabled by default):
+```bash
+npx agentaudit audit <url> --verify self     # Self-verification (default)
+npx agentaudit audit <url> --verify cross    # Cross-model verification
+npx agentaudit audit <url> --no-verify       # Skip verification
+```
+
+See `prompts/verification-prompt.md` for the full verification prompt.
+
 ### Exit Codes
 
 **gate.mjs / gate.sh** (security gate — primary script):
@@ -234,11 +256,9 @@ When exit code 3 occurs:
    3. Choose different package
    ```
 
-2. **If user chooses audit**:
-   - Read the file `$AGENTAUDIT_HOME/prompts/audit-prompt.md` (use your file reading tool)
-   - Analyze package source against security patterns
-   - Build JSON report (format: [REPORT-FORMAT.md](references/REPORT-FORMAT.md))
-   - Submit: `node $AGENTAUDIT_HOME/scripts/upload.mjs report.json`
+2. **If user chooses audit** (preferred: use CLI with verification):
+   - **Option A (recommended)**: Run `npx agentaudit audit <source-url> --verify self` — this handles the full audit + verification + upload pipeline automatically
+   - **Option B (manual)**: Read the file `$AGENTAUDIT_HOME/prompts/audit-prompt.md`, analyze package source, build JSON report ([REPORT-FORMAT.md](references/REPORT-FORMAT.md)), then verify findings against `$AGENTAUDIT_HOME/prompts/verification-prompt.md`, and submit: `node $AGENTAUDIT_HOME/scripts/upload.mjs report.json`
    - Re-run gate check
 
 3. **Earn reputation** on [AgentAudit Leaderboard](https://agentaudit.dev/leaderboard)!
@@ -311,12 +331,20 @@ ___
 
 For deep-dive security analysis, see [Audit Methodology Guide](references/AUDIT-METHODOLOGY.md).
 
-**Quick Reference:**
+**Quick Reference (CLI — recommended):**
+```bash
+npx agentaudit audit <source-url> --verify self     # Full audit + verification (default)
+npx agentaudit audit <source-url> --verify self --timeout 300   # With custom timeout (seconds)
+npx agentaudit audit <source-url> --no-verify        # Skip verification pass
+```
+
+**Manual Reference (without CLI):**
 1. Register: `node scripts/register.mjs <agent-name>`
 2. Read audit prompt: `prompts/audit-prompt.md`
 3. Analyze all files against detection patterns
-4. Build JSON report (see format below)
-5. Upload: `node scripts/upload.mjs report.json`
+4. Verify findings against `prompts/verification-prompt.md`
+5. Build JSON report (see format below)
+6. Upload: `node scripts/upload.mjs report.json`
 
 **Minimal report JSON (clean scan — no findings):**
 ```json

@@ -96,8 +96,8 @@ agentaudit
 # Quick scan a repo
 agentaudit scan https://github.com/owner/repo
 
-# Deep LLM audit
-agentaudit audit https://github.com/owner/repo
+# Deep LLM audit (with verification pass enabled by default)
+agentaudit audit https://github.com/owner/repo --verify self
 
 # Look up in registry
 agentaudit lookup fastmcp
@@ -444,6 +444,14 @@ The skill folder contains `SKILL.md` — the universal instruction format that a
 ---
 
 ## 🆕 What's New
+
+### v3.13: Verification Pass + --verify (2026-02)
+- **Verification Pass**: After the 3-pass audit, each finding is re-checked against the actual source code using a 5-point adversarial checklist (code existence, context, execution model, severity calibration, fabrication detection)
+- **`--verify self`**: Enabled by default for all audit commands — the same model verifies its own findings
+- **`--verify cross`**: Optional cross-model verification for highest confidence
+- **`--no-verify`**: Skip verification when speed matters more than precision
+- **`--timeout <sec>`**: Configurable LLM request timeout (default: 180s, max: 600s)
+- **Real-world FP reduction**: False positives dropped from ~70% to ~30% on Top 20 MCP servers benchmark
 
 ### v3.0: 3-Pass Audit Architecture + Zero False Positives (2026-02)
 - **3-Pass Architecture**: UNDERSTAND → DETECT → CLASSIFY. Separates comprehension from scanning from judgment.
